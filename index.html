@@ -133,6 +133,16 @@
     </div>
 
     <script>
+      // Variabili globali
+      let punteggio = 0;
+      let domandaCorrente = 0;
+      let timer;
+      let livelloCorrente;
+      let tempoInizio;
+
+      const TEMPO = 20;
+      const NUM_DOMANDE = 10;
+            
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register("/service-worker.js").then(
@@ -149,12 +159,7 @@
         });
       }
 
-      // Variabili globali
-      let punteggio = 0;
-      let domandaCorrente = 0;
-      let timer;
-      let livelloCorrente;
-      let tempoInizio;
+
 
       function mostraBottoneFineGioco() {
         document.getElementById("fineGiocoBtn").style.display = "block";
@@ -255,7 +260,7 @@
       // Funzione per passare alla prossima domanda
       function prossimadomanda() {
         clearTimeout(timer);
-        if (domandaCorrente < 10) {
+        if (domandaCorrente < NUM_DOMANDE) {
           domandaCorrente++;
           let { domanda, risposta } = generaDomanda();
           let opzioni = generaRisposteMultiple(risposta);
@@ -268,7 +273,7 @@
             )
             .join("");
 
-          document.getElementById("timer").textContent = "10";
+          document.getElementById("timer").textContent = TEMPO;
           tempoInizio = Date.now();
           avviaTimer();
         } else {
@@ -278,7 +283,7 @@
 
       // Funzione per avviare il timer
       function avviaTimer() {
-        let secondi = 10;
+        let secondi = TEMPO;
         timer = setInterval(() => {
           secondi--;
           document.getElementById("timer").textContent = secondi;
@@ -304,7 +309,7 @@
       function controllaRisposta(domanda, rispostaUtente, rispostaCorretta) {
         clearInterval(timer);
         let tempoRisposta = Math.floor((Date.now() - tempoInizio) / 1000);
-        let puntiGuadagnati = 10 - tempoRisposta;
+        let puntiGuadagnati = TEMPO - tempoRisposta;
 
         if (rispostaUtente === rispostaCorretta) {
           punteggio += puntiGuadagnati;
@@ -312,10 +317,13 @@
           aggiungiAlloStorico(domanda, rispostaUtente, null, true);
         } else {
           document.getElementById("suono-sbagliato").play();
-          punteggio -= puntiGuadagnati;
+          let puntiPersi = puntiGuadagnati / 2
+          punteggio -= puntiPersi;
+          
           if (tempoRisposta < 2) {
-            punteggio -= 1; // Penalità extra per risposta rapida ma sbagliata
+            punteggio -= 2; // Penalità extra per risposta rapida ma sbagliata
           }
+          
           aggiungiAlloStorico(domanda, rispostaUtente, rispostaCorretta, false);
         }
         document.getElementById("punteggio").textContent = punteggio;
