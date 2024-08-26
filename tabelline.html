@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#3b5998" />
+    <title>Gioco delle Tabelline</title>
+    <style>
+      h1 {
+        margin-bottom: 60px;
+      }
+
+      h3 {
+        font-size: 24px;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        background-color: #f0f0f0;
+      }
+      #game-container {
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        max-width: 800px;
+        width: 100%;
+        min-height: 100vh;
+      }
+      button {
+        margin: 5px;
+        padding: 20px 30px;
+        font-size: 24px;
+        cursor: pointer;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      #domanda {
+        font-size: 44px;
+        margin-bottom: 20px;
+      }
+      #timer,
+      #punteggio {
+        font-weight: bold;
+      }
+      #game-area {
+      }
+      #game-play {
+        flex: 1;
+        margin-right: 20px;
+      }
+      #storico {
+        flex: 1;
+        text-align: left;
+        padding-left: 20px;
+        max-height: 700px;
+        overflow-y: auto;
+        background-color: #eee;
+        margin: 30px;
+        border-radius: 20px;
+      }
+      #storico-list {
+        list-style-type: circle;
+        font-size: 20px;
+      }
+      li {
+        margin-bottom: 10px;
+        line-height: 32px;
+      }
+      .corretta {
+        color: green;
+      }
+      .sbagliata {
+        color: red;
+      }
+      .risposta-corretta {
+        color: green;
+      }
+      #timescore {
+        font-size: 30px;
+      }
+      .time {
+        margin-top: 20px;
+        margin-bottom: 20px;
+      }
+      #fineGiocoBtn {
+        margin: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <audio id="suono-corretto" src="corretto.mp3"></audio>
+    <audio id="suono-sbagliato" src="sbagliato.mp3"></audio>
+    <div id="game-container">
+      <h1>Gioco delle Tabelline</h1>
+      <div id="level-selection">
+        <h2>Scegli il livello</h2>
+        <button onclick="iniziaGioco(1)">Facile</button>
+        <button onclick="iniziaGioco(2)">Medio</button>
+        <button onclick="iniziaGioco(3)">Difficile</button>
+      </div>
+      <div id="game-area" style="display: none">
+        <div id="game-play">
+          <div id="domanda"></div>
+          <div id="opzioni"></div>
+          <div id="timescore">
+            <div class="time">Tempo rimanente: <span id="timer"></span></div>
+            <div class="score">Punteggio: <span id="punteggio">0</span></div>
+          </div>
+        </div>
+        <div id="storico">
+          <h3>Storico domande e risposte:</h3>
+          <ul id="storico-list"></ul>
+        </div>
+        <button id="fineGiocoBtn" style="display: none">Fine Gioco</button>
+      </div>
+    </div>
+
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/service-worker.js").then(
+            (registration) => {
+              console.log(
+                "Service Worker registrato con successo:",
+                registration
+              );
+            },
+            (err) => {
+              console.log("Service Worker registrazione fallita:", err);
+            }
+          );
+        });
+      }
+
+      // Variabili globali
+      let punteggio = 0;
+      let domandaCorrente = 0;
+      let timer;
+      let livelloCorrente;
+      let tempoInizio;
+
+      function mostraBottoneFineGioco() {
+        document.getElementById("fineGiocoBtn").style.display = "block";
+        document.getElementById("game-play").style.display = "none";
+      }
+      document
+        .getElementById("fineGiocoBtn")
+        .addEventListener("click", function () {
+          fineGioco();
+        });
+
+      // Funzione per generare una domanda casuale
+      function generaDomanda() {
+        let num1, num2;
+        switch (livelloCorrente) {
+          case 1:
+            num1 = Math.floor(Math.random() * 4) + 1;
+            break;
+          case 2:
+            num1 = Math.floor(Math.random() * 7) + 1;
+            break;
+          case 3:
+            num1 = Math.floor(Math.random() * 10) + 1;
+            break;
+        }
+        num2 = Math.floor(Math.random() * 10) + 1;
+        return {
+          domanda: `${num1} x ${num2} = `,
+          risposta: num1 * num2,
+        };
+      }
+
+      // Funzione per generare risposte multiple migliorata
+      function generaRisposteMultiple(rispostaCorretta) {
+        let risposte = [rispostaCorretta];
+        let isPari = rispostaCorretta % 2 === 0;
+        let range;
+        let tentativiMassimi = 100; // Limite massimo di tentativi per evitare loop infiniti
+        let tentativi = 0;
+
+        if (rispostaCorretta <= 10) {
+          range = Math.floor(rispostaCorretta * 0.5); // +/- 50%
+        } else {
+          range = Math.floor(rispostaCorretta * 0.2); // +/- 20%
+        }
+
+        while (risposte.length < 4 && tentativi < tentativiMassimi) {
+          tentativi++;
+
+          let rispostaErrata =
+            rispostaCorretta +
+            Math.floor(Math.random() * (range * 2 + 1)) -
+            range;
+
+          // Assicurati che la risposta errata sia dello stesso tipo (pari o dispari)
+          if (isPari && rispostaErrata % 2 !== 0) {
+            rispostaErrata += 1; // Cambia per renderla pari
+          } else if (!isPari && rispostaErrata % 2 === 0) {
+            rispostaErrata -= 1; // Cambia per renderla dispari
+          }
+
+          // Assicurati che la risposta errata non sia duplicata e che non sia la risposta corretta
+          if (
+            rispostaErrata !== rispostaCorretta &&
+            !risposte.includes(rispostaErrata) &&
+            rispostaErrata > 0
+          ) {
+            risposte.push(rispostaErrata);
+          }
+        }
+
+        // Se non siamo riusciti a generare abbastanza risposte errate, aggiungiamo risposte casuali per completare
+        while (risposte.length < 4) {
+          let rispostaCasuale = Math.floor(Math.random() * 100) + 1;
+          if (
+            !risposte.includes(rispostaCasuale) &&
+            rispostaCasuale !== rispostaCorretta
+          ) {
+            risposte.push(rispostaCasuale);
+          }
+        }
+
+        return risposte.sort(() => Math.random() - 0.5);
+      }
+
+      // Funzione per iniziare il gioco
+      function iniziaGioco(livello) {
+        punteggio = 0;
+        domandaCorrente = 0;
+        livelloCorrente = livello;
+        document.getElementById("punteggio").textContent = punteggio;
+        document.getElementById("level-selection").style.display = "none";
+        document.getElementById("game-area").style.display = "block";
+        document.getElementById("storico-list").innerHTML = "";
+        prossimadomanda();
+      }
+
+      // Funzione per passare alla prossima domanda
+      function prossimadomanda() {
+        clearTimeout(timer);
+        if (domandaCorrente < 10) {
+          domandaCorrente++;
+          let { domanda, risposta } = generaDomanda();
+          let opzioni = generaRisposteMultiple(risposta);
+
+          document.getElementById("domanda").textContent = domanda + "?";
+          document.getElementById("opzioni").innerHTML = opzioni
+            .map(
+              (opzione) =>
+                `<button onclick="controllaRisposta('${domanda}', ${opzione}, ${risposta})">${opzione}</button>`
+            )
+            .join("");
+
+          document.getElementById("timer").textContent = "10";
+          tempoInizio = Date.now();
+          avviaTimer();
+        } else {
+          mostraBottoneFineGioco();
+        }
+      }
+
+      // Funzione per avviare il timer
+      function avviaTimer() {
+        let secondi = 10;
+        timer = setInterval(() => {
+          secondi--;
+          document.getElementById("timer").textContent = secondi;
+          if (secondi === 0) {
+            clearInterval(timer);
+            punteggio -= 10; // Penalità massima per tempo scaduto
+            document.getElementById("punteggio").textContent = punteggio;
+            let domandaCompleta =
+              document.getElementById("domanda").textContent;
+            aggiungiAlloStorico(
+              domandaCompleta.substring(0, domandaCompleta.length - 1),
+              "Tempo scaduto",
+              domandaCompleta.split(" = ")[0].split("x")[0].trim() *
+                domandaCompleta.split(" = ")[0].split("x")[1].trim()
+            );
+            document.getElementById("suono-sbagliato").play();
+            prossimadomanda();
+          }
+        }, 1000);
+      }
+
+      // Funzione per controllare la risposta
+      function controllaRisposta(domanda, rispostaUtente, rispostaCorretta) {
+        clearInterval(timer);
+        let tempoRisposta = Math.floor((Date.now() - tempoInizio) / 1000);
+        let puntiGuadagnati = 10 - tempoRisposta;
+
+        if (rispostaUtente === rispostaCorretta) {
+          punteggio += puntiGuadagnati;
+          document.getElementById("suono-corretto").play();
+          aggiungiAlloStorico(domanda, rispostaUtente, null, true);
+        } else {
+          document.getElementById("suono-sbagliato").play();
+          punteggio -= puntiGuadagnati;
+          if (tempoRisposta < 2) {
+            punteggio -= 1; // Penalità extra per risposta rapida ma sbagliata
+          }
+          aggiungiAlloStorico(domanda, rispostaUtente, rispostaCorretta, false);
+        }
+        document.getElementById("punteggio").textContent = punteggio;
+        prossimadomanda();
+      }
+
+      // Funzione per aggiungere allo storico
+      function aggiungiAlloStorico(
+        domanda,
+        rispostaUtente,
+        rispostaCorretta,
+        corretta
+      ) {
+        let li = document.createElement("li");
+        if (corretta) {
+          li.innerHTML = `<span class="corretta">${domanda}${rispostaUtente}</span>`;
+        } else if (rispostaUtente === "Tempo scaduto") {
+          li.innerHTML = `<span class="sbagliata">${domanda}Tempo scaduto</span> <span class="risposta-corretta">(${rispostaCorretta})</span>`;
+        } else {
+          li.innerHTML = `<span class="sbagliata">${domanda}${rispostaUtente}</span> <span class="risposta-corretta">(${rispostaCorretta})</span>`;
+        }
+        document.getElementById("storico-list").prepend(li);
+      }
+
+      // Funzione per terminare il gioco
+      function fineGioco() {
+        document.getElementById("game-area").innerHTML = `
+                <h2>Fine del gioco!</h2>
+                <h3>Il tuo punteggio finale è: ${punteggio}</h3>
+                <button onclick="location.reload()">Gioca di nuovo</button>
+            `;
+      }
+    </script>
+  </body>
+</html>
