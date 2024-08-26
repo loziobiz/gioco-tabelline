@@ -289,7 +289,7 @@
           document.getElementById("timer").textContent = secondi;
           if (secondi === 0) {
             clearInterval(timer);
-            punteggio -= 10; // Penalità massima per tempo scaduto
+            punteggio -= TEMPO; // Penalità massima per tempo scaduto
             document.getElementById("punteggio").textContent = punteggio;
             let domandaCompleta =
               document.getElementById("domanda").textContent;
@@ -299,7 +299,7 @@
               domandaCompleta.split(" = ")[0].split("x")[0].trim() *
                 domandaCompleta.split(" = ")[0].split("x")[1].trim()
             );
-            document.getElementById("suono-sbagliato").play();
+
             prossimadomanda();
           }
         }, 1000);
@@ -323,7 +323,7 @@
           if (tempoRisposta < 2) {
             punteggio -= 2; // Penalità extra per risposta rapida ma sbagliata
           }
-          
+
           aggiungiAlloStorico(domanda, rispostaUtente, rispostaCorretta, false);
         }
         document.getElementById("punteggio").textContent = punteggio;
